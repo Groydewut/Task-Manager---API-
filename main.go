@@ -1,9 +1,15 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/joho/godotenv"
@@ -25,7 +31,11 @@ func main() {
 	}
 	db.SetMaxOpenConns(15)
 	db.SetMaxIdleConns(8)
-	defer db.Close()
+
+	defer func() {
+		log.Println("Закрытие пула соеденений базы данных")
+		db.Close()
+	}()
 
 	if db == nil {
 		log.Fatal("Критическая ошибка. Переменая базы данных равна nil")
@@ -50,8 +60,35 @@ func main() {
 
 	r.Get("/health", myHandler.CheckHealth)
 
-	fmt.Println("Сервер запущен на http://localhost:8080")
+	//! Настройка http.Server чтобы иметь доступ к методу Shutdown
 
-	log.Fatal(http.ListenAndServe(":8080", r))
+	srv := &http.Server{
+		Addr:    ":8080",
+		Handler: r,
+	}
 
+	//! Отслеживание системных сигналов
+	shutdownSignal := make(chan os.Signal, 1)
+	signal.Notify(shutdownSignal, os.Interrupt, syscall.SIGTERM)
+
+	//! Запуск сервера в фоновом режиме
+	go func() {
+		fmt.Println("Сервер запущен на http://localhost:8080")
+		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Fatal("Ошибка запуска сервера")
+		}
+	}()
+
+	//! Блокируем поток до получения сигнала
+	sig := <-shutdownSignal
+	log.Printf("Получен сигнал %v. Начинаем Graceful Shutdown...", sig)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	//! Останавливаем сервер, он перестаёт проинимать новые запросы и ждет обработки старых в пределах таймаута
+	if err := srv.Shutdown(ctx); err != nil {
+		log.Fatalf("ОШибка при остановке сервера: %v", err)
+	}
+	log.Println("Сервер успешно остановлен")
 }
