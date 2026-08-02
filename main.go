@@ -44,6 +44,9 @@ func main() {
 		r.Put("/tasks/{id}", myHandler.UpdateTask)
 		r.Delete("/tasks/{id}", myHandler.DeleateTask)
 	})
+
+	r.Get("/health", myHandler.CheckHealth)
+
 	log.Fatal(http.ListenAndServe(":8080", r))
 
 }
