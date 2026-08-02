@@ -3,8 +3,7 @@ package main
 import (
 	"context"
 	"errors"
-	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -14,31 +13,41 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/joho/godotenv"
 
+	middleware "TaskManager-API/Middleware"
 	TaskController "TaskManager-API/TaskControllerHendlers"
 	taskfunction "TaskManager-API/TaskFunction"
 )
 
 func main() {
+	//! Регистрация логера
+
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+
 	err := godotenv.Load()
 	if err != nil {
-		log.Println("Не удалось загрузить файл .env, используются переменные окружения")
+		logger.Error("Не удалось загрузить файл .env, используются переменные окружения")
+		os.Exit(1)
 	}
 
 	//! Подключение к бд
 	db, err := taskfunction.InitDB()
 	if err != nil {
-		log.Fatal(err)
+		logger.Error("Ошибка подключения к БД", slog.String("err", err.Error()))
+		os.Exit(1)
 	}
+	logger.Info("Успешное подключение к PostgreSQL")
+
 	db.SetMaxOpenConns(15)
 	db.SetMaxIdleConns(8)
 
 	defer func() {
-		log.Println("Закрытие пула соеденений базы данных")
+		logger.Info("Закрытие пула соеденений базы данных")
 		db.Close()
 	}()
 
 	if db == nil {
-		log.Fatal("Критическая ошибка. Переменая базы данных равна nil")
+		logger.Error("Критическая ошибка. Переменая базы данных равна nil")
+		os.Exit(1)
 	}
 
 	myModel := taskfunction.TaskModel{DB: db}
@@ -51,6 +60,8 @@ func main() {
 
 	//! Маршруты
 	r.Group(func(r chi.Router) {
+		r.Use(middleware.SlogMiddleware(logger))
+
 		r.Post("/tasks", myHandler.CreateTask)
 		r.Get("/tasks", myHandler.TaskList)
 		r.Get("/tasks/{id}", myHandler.TaskListByID)
@@ -73,22 +84,24 @@ func main() {
 
 	//! Запуск сервера в фоновом режиме
 	go func() {
-		fmt.Println("Сервер запущен на http://localhost:8080")
+		logger.Info("Сервер запущен", slog.String("url", "http://localhost:8080"))
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			log.Fatal("Ошибка запуска сервера")
+			logger.Error("Ошибка запуска сервера", slog.String("err", err.Error()))
+			os.Exit(1)
 		}
 	}()
 
 	//! Блокируем поток до получения сигнала
 	sig := <-shutdownSignal
-	log.Printf("Получен сигнал %v. Начинаем Graceful Shutdown...", sig)
+	logger.Info("Получен системный сигнал. Начинаем Graceful Shutdown...", slog.String("signal", sig.String()))
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	//! Останавливаем сервер, он перестаёт проинимать новые запросы и ждет обработки старых в пределах таймаута
 	if err := srv.Shutdown(ctx); err != nil {
-		log.Fatalf("ОШибка при остановке сервера: %v", err)
+		logger.Error("Ошибка при остановке сервера", slog.String("err", err.Error()))
+		os.Exit(1)
 	}
-	log.Println("Сервер успешно остановлен")
+	logger.Info("Сервер успешно остановлен")
 }

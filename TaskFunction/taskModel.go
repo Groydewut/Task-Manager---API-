@@ -66,7 +66,6 @@ func InitDB() (*sql.DB, error) {
 	if err != nil {
 		return nil, fmt.Errorf("Не удалось создать таблицу - %v", err)
 	}
-	log.Println("Успешное подключение к PostgreSQL")
 
 	return DB, nil
 }
