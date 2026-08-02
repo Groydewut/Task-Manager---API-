@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 
@@ -22,6 +23,8 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	db.SetMaxOpenConns(15)
+	db.SetMaxIdleConns(8)
 	defer db.Close()
 
 	if db == nil {
@@ -46,6 +49,8 @@ func main() {
 	})
 
 	r.Get("/health", myHandler.CheckHealth)
+
+	fmt.Println("Сервер запущен на http://localhost:8080")
 
 	log.Fatal(http.ListenAndServe(":8080", r))
 
