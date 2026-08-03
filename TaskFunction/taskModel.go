@@ -31,6 +31,26 @@ type TaskModel struct {
 	DB *sql.DB
 }
 
+func (m TaskModel) Delete(id int) error {
+
+	query := "DELETE FROM tasks WHERE id = &1"
+
+	result, err := m.DB.Exec(query, id)
+	if err != nil {
+		return fmt.Errorf("ошибка при удалении задачи: %w", err)
+	}
+
+	rows, err := result.RowsAffected()
+	if rows == 0 {
+		return fmt.Errorf("задача не найдена")
+	}
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (m TaskModel) Update(t Task) error {
 	query := "UPDATE tasks SET title = $1, description = $2, status = $3, priority = $4, updated_at = NOW() WHERE id = $5"
 
