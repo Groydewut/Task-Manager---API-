@@ -2,10 +2,12 @@ package taskfunction
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"log"
 	"log/slog"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/golang-migrate/migrate/v4"
@@ -83,4 +85,35 @@ func InitDB() (*sql.DB, error) {
 	logger.Info("миграции успешно применены")
 
 	return DB, nil
+}
+
+var validateStatuses = map[string]bool{
+	"pending":     true,
+	"in_progress": true,
+	"done":        true,
+}
+
+var validPriorities = map[string]bool{
+	"low":    true,
+	"medium": true,
+	"high":   true,
+}
+
+func ValidateTask(t Task) error {
+
+	if len(strings.TrimSpace(t.Title)) > 255 {
+		return errors.New("title too long")
+	}
+	if strings.TrimSpace(t.Title) == "" {
+		return errors.New("title is required")
+	}
+	if strings.TrimSpace(t.Status) != "" && !validateStatuses[t.Status] {
+		return errors.New("invalid status")
+	}
+	if strings.TrimSpace(t.Priority) != "" && !validPriorities[t.Priority] {
+		return errors.New("invalid priority")
+	}
+	if len(strings.TrimSpace(t.Description)) > 5000 {
+		return errors.New("description too long")
+	}
 }
