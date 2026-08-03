@@ -31,6 +31,33 @@ type TaskModel struct {
 	DB *sql.DB
 }
 
+func (m TaskModel) GetAllTasks(status string, limit, offset int) ([]Task, error) {
+	query := "SELECT id, title, description,status,priority,created_at,updated_at FROM tasks WHERE  (id = &1 OR status = &1) ORDER BY created_at DESC LIMIT &2 OFFSET &3"
+	rows, err := m.DB.Query(query, status, limit, offset)
+	if err != nil {
+		return nil, fmt.Errorf("ошибка получения списка: %w", err)
+	}
+	defer rows.Close()
+
+	var tasks []Task
+	for rows.Next() {
+		var t Task
+		err := rows.Scan(
+			&t.ID, &t.Title, &t.Description, &t.Status,
+			&t.Priority, &t.CreatedAt, &t.UpdatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+		tasks = append(tasks, t)
+
+	}
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+	return tasks, nil
+}
+
 func (m TaskModel) GetByID(id int) (Task, error) {
 	query := "SELECT id, title, description,status,priority,created_at,updated_at FROM tasks WHERE id = &1"
 
