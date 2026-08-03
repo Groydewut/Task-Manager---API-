@@ -22,11 +22,22 @@ type Task struct {
 	Status      string    `json:"status"`
 	Priority    string    `json:"priority"`
 	CreatedAt   time.Time `json:"created_at"`
-	UpdateAt    time.Time `json:"update_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
 }
 
 type TaskModel struct {
 	DB *sql.DB
+}
+
+func (m TaskModel) InsertTask(t Task) (int, error) {
+	query := "INSERT INTO tasks (title,description,status,priority) VALUES ($1,$2,$3,$4)  RETURNING id"
+	var id int
+
+	err := m.DB.QueryRow(query, t.Title, t.Description, t.Status, t.Priority).Scan(&id)
+	if err != nil {
+		return 0, fmt.Errorf("произошла ошибка при добавления записи: %w ", err)
+	}
+	return id, nil
 }
 
 func InitDB() (*sql.DB, error) {
