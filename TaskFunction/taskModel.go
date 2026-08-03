@@ -33,7 +33,7 @@ type TaskModel struct {
 
 func (m TaskModel) Delete(id int) error {
 
-	query := "DELETE FROM tasks WHERE id = &1"
+	query := "DELETE FROM tasks WHERE id = $1"
 
 	result, err := m.DB.Exec(query, id)
 	if err != nil {
@@ -41,11 +41,11 @@ func (m TaskModel) Delete(id int) error {
 	}
 
 	rows, err := result.RowsAffected()
-	if rows == 0 {
-		return fmt.Errorf("задача не найдена")
-	}
 	if err != nil {
 		return err
+	}
+	if rows == 0 {
+		return fmt.Errorf("задача не найдена")
 	}
 
 	return nil
@@ -59,17 +59,17 @@ func (m TaskModel) Update(t Task) error {
 		return fmt.Errorf("ошибка при обновлении задачи: %w", err)
 	}
 	rows, err := result.RowsAffected()
-	if rows == 0 {
-		return fmt.Errorf("задача не найдена")
-	}
 	if err != nil {
 		return err
+	}
+	if rows == 0 {
+		return fmt.Errorf("задача не найдена")
 	}
 	return nil
 }
 
 func (m TaskModel) GetAllTasks(status string, limit, offset int) ([]Task, error) {
-	query := "SELECT id, title, description,status,priority,created_at,updated_at FROM tasks WHERE  (id = &1 OR status = &1) ORDER BY created_at DESC LIMIT &2 OFFSET &3"
+	query := "SELECT id, title, description,status,priority,created_at,updated_at FROM tasks WHERE  (id = $1 OR status = $1) ORDER BY created_at DESC LIMIT $2 OFFSET $3"
 
 	rows, err := m.DB.Query(query, status, limit, offset)
 
@@ -103,7 +103,7 @@ func (m TaskModel) GetAllTasks(status string, limit, offset int) ([]Task, error)
 }
 
 func (m TaskModel) GetByID(id int) (Task, error) {
-	query := "SELECT id, title, description,status,priority,created_at,updated_at FROM tasks WHERE id = &1"
+	query := "SELECT id, title, description,status,priority,created_at,updated_at FROM tasks WHERE id = $1"
 
 	var t Task
 
@@ -191,11 +191,11 @@ var validPriorities = map[string]bool{
 
 func ValidateTask(t Task) error {
 
-	if len(strings.TrimSpace(t.Title)) > 255 {
-		return errors.New("title too long")
-	}
 	if strings.TrimSpace(t.Title) == "" {
 		return errors.New("title is required")
+	}
+	if len(strings.TrimSpace(t.Title)) > 255 {
+		return errors.New("title too long")
 	}
 	if strings.TrimSpace(t.Status) != "" && !validateStatuses[t.Status] {
 		return errors.New("invalid status")
