@@ -4,10 +4,15 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"log/slog"
 	"os"
 	"time"
 
+	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/lib/pq"
+
+	_ "github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
 )
 
 type Task struct {
@@ -31,7 +36,7 @@ func InitDB() (*sql.DB, error) {
 	password := os.Getenv("DB_PASSWORD")
 	dbName := os.Getenv("DB_NAME")
 
-	connStr := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable", host, port, user, password, dbName)
+	connStr := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable", user, password, host, port, dbName)
 
 	var DB *sql.DB
 	var err error
@@ -51,21 +56,20 @@ func InitDB() (*sql.DB, error) {
 		return nil, fmt.Errorf("Не удалось подключиться к бд после 5 попыток: %v", err)
 	}
 
-	query := `
-	CREATE TABLE IF NOT EXISTS tasks (
-		id          SERIAL PRIMARY KEY,           -- автоинкремент, уникальный ID
-		title       VARCHAR(255) NOT NULL,        -- название задачи, обязательное
-		description TEXT,                         -- описание, может быть пустым
-		status      VARCHAR(20) NOT NULL DEFAULT 'pending',
-		priority    VARCHAR(20) NOT NULL DEFAULT 'medium',
-		created_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-		updated_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-	);
-	`
-	_, err = DB.Exec(query)
+	m, err := migrate.New(
+		"file://migrations",
+		connStr,
+	)
 	if err != nil {
-		return nil, fmt.Errorf("Не удалось создать таблицу - %v", err)
+		return nil, fmt.Errorf("ошибка инициализации миграции: %w", err)
 	}
+
+	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
+		return nil, fmt.Errorf("ошибка применений миграций: %w", err)
+	}
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+
+	logger.Info("миграции успешно применены")
 
 	return DB, nil
 }
