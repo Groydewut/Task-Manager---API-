@@ -31,30 +31,54 @@ type TaskModel struct {
 	DB *sql.DB
 }
 
+func (m TaskModel) Update(t Task) error {
+	query := "UPDATE tasks SET title = $1, description = $2, status = $3, priority = $4, updated_at = NOW() WHERE id = $5"
+
+	result, err := m.DB.Exec(query, t.Title, t.Description, t.Status, t.Priority, t.ID)
+	if err != nil {
+		return fmt.Errorf("ошибка при обновлении задачи: %w", err)
+	}
+	rows, err := result.RowsAffected()
+	if rows == 0 {
+		return fmt.Errorf("задача не найдена")
+	}
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (m TaskModel) GetAllTasks(status string, limit, offset int) ([]Task, error) {
 	query := "SELECT id, title, description,status,priority,created_at,updated_at FROM tasks WHERE  (id = &1 OR status = &1) ORDER BY created_at DESC LIMIT &2 OFFSET &3"
+
 	rows, err := m.DB.Query(query, status, limit, offset)
+
 	if err != nil {
 		return nil, fmt.Errorf("ошибка получения списка: %w", err)
 	}
 	defer rows.Close()
 
 	var tasks []Task
+
 	for rows.Next() {
 		var t Task
 		err := rows.Scan(
 			&t.ID, &t.Title, &t.Description, &t.Status,
 			&t.Priority, &t.CreatedAt, &t.UpdatedAt,
 		)
+
 		if err != nil {
 			return nil, err
 		}
+
 		tasks = append(tasks, t)
 
 	}
+
 	if err = rows.Err(); err != nil {
 		return nil, err
 	}
+
 	return tasks, nil
 }
 
