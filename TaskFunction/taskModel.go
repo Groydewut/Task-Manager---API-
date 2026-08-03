@@ -31,6 +31,25 @@ type TaskModel struct {
 	DB *sql.DB
 }
 
+func (m TaskModel) GetByID(id int) (Task, error) {
+	query := "SELECT id, title, description,status,priority,created_at,updated_at FROM tasks WHERE id = &1"
+
+	var t Task
+
+	err := m.DB.QueryRow(query, id).Scan(
+		&t.ID, &t.Title, &t.Description, &t.Status,
+		&t.Priority, &t.CreatedAt, &t.UpdatedAt,
+	)
+	if err == sql.ErrNoRows {
+		return Task{}, fmt.Errorf("задача не найдена")
+	}
+
+	if err != nil {
+		return Task{}, fmt.Errorf("ошибка при получении задачи: %w", err)
+	}
+	return t, nil
+}
+
 func (m TaskModel) InsertTask(t Task) (int, error) {
 	query := "INSERT INTO tasks (title,description,status,priority) VALUES ($1,$2,$3,$4)  RETURNING id"
 	var id int
@@ -116,4 +135,5 @@ func ValidateTask(t Task) error {
 	if len(strings.TrimSpace(t.Description)) > 5000 {
 		return errors.New("description too long")
 	}
+	return nil
 }
