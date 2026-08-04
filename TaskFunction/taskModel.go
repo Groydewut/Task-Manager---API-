@@ -31,6 +31,8 @@ type TaskModel struct {
 	DB *sql.DB
 }
 
+var ErrTaskNotFound = errors.New("task not found")
+
 func (m TaskModel) Delete(id int) error {
 
 	query := "DELETE FROM tasks WHERE id = $1"
@@ -45,7 +47,7 @@ func (m TaskModel) Delete(id int) error {
 		return err
 	}
 	if rows == 0 {
-		return fmt.Errorf("задача не найдена")
+		return ErrTaskNotFound
 	}
 
 	return nil
@@ -63,7 +65,7 @@ func (m TaskModel) Update(t Task) error {
 		return err
 	}
 	if rows == 0 {
-		return fmt.Errorf("задача не найдена")
+		return ErrTaskNotFound
 	}
 	return nil
 }
@@ -112,7 +114,7 @@ func (m TaskModel) GetByID(id int) (Task, error) {
 		&t.Priority, &t.CreatedAt, &t.UpdatedAt,
 	)
 	if err == sql.ErrNoRows {
-		return Task{}, fmt.Errorf("задача не найдена")
+		return Task{}, ErrTaskNotFound
 	}
 
 	if err != nil {

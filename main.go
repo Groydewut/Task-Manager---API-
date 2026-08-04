@@ -66,7 +66,7 @@ func main() {
 		r.Get("/tasks", myHandler.TaskList)
 		r.Get("/tasks/{id}", myHandler.TaskListByID)
 		r.Put("/tasks/{id}", myHandler.UpdateTask)
-		r.Delete("/tasks/{id}", myHandler.DeleateTask)
+		r.Delete("/tasks/{id}", myHandler.DeleteTask)
 	})
 
 	r.Get("/health", myHandler.CheckHealth)
