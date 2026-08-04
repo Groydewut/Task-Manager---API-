@@ -9,25 +9,36 @@ REST API для управления задачами, написанный на
 
 - **Go** 1.22+
 - **Роутер:** [chi](https://github.com/go-chi/chi) (`v5`)
-- **БД:** PostgreSQL (драйвер в процессе подключения)
-- **Доступ к БД:** `database/sql` + `sqlx` (или `pgx`) — без ORM
-- **Миграции:** [golang-migrate/migrate](https://github.com/golang-migrate/migrate) или [pressly/goose](https://github.com/pressly/goose)
-- **Логи:** стандартный [`log/slog`](https://pkg.go.dev/log/slog)
+- **БД:** PostgreSQL (драйвер `database/sql` — стандартная библиотека)
+- **Коннект-пул:** настроен для эффективного управления соединениями
+- **Миграции:** планируется `golang-migrate` или `goose`
+- **Логи:** стандартный [`log/slog`](https://pkg.go.dev/log/slog) + кастомный логгер с единым форматом
 - **Конфиг:** переменные окружения + [godotenv](https://github.com/joho/godotenv)
+- **Graceful shutdown:** `signal.NotifyContext` + `srv.Shutdown`
 - **Контейнеризация:** Docker + docker-compose (планируется)
 
 ---
 
 ## 📋 Функционал (endpoints)
 
-| Метод  | Путь           | Описание                                       |
-| ------ | -------------- | ---------------------------------------------- |
-| POST   | `/tasks`       | Создать задачу                                 |
-| GET    | `/tasks`       | Список задач (фильтр `status`, пагинация)      |
-| GET    | `/tasks/{id}`  | Получить задачу по ID                          |
-| PUT    | `/tasks/{id}`  | Обновить задачу                                |
-| DELETE | `/tasks/{id}`  | Удалить задачу                                 |
-| GET    | `/health`      | Healthcheck (проверка соединения с БД)         |
+### ✅ Реализовано
+
+| Метод  | Путь           | Описание                                       | Статус |
+| ------ | -------------- | ---------------------------------------------- | ------ |
+| POST   | `/tasks`       | Создать задачу                                 | ✅ Готово |
+| GET    | `/tasks`       | Список задач (фильтр `status`, пагинация)      | ✅ Готово |
+| GET    | `/tasks/{id}`  | Получить задачу по ID                          | ✅ Готово |
+| PUT    | `/tasks/{id}`  | Обновить задачу                                | ✅ Готово |
+| DELETE | `/tasks/{id}`  | Удалить задачу                                 | ✅ Готово |
+| GET    | `/health`      | Healthcheck (проверка соединения с БД)         | ✅ Готово |
+
+### 🛠 Инфраструктура
+
+- ✅ **Graceful shutdown** — корректная обработка `SIGINT`/`SIGTERM`, завершение текущих запросов и закрытие соединений
+- ✅ **Конфигурация через env** — `PORT`, `DATABASE_URL`, `LOG_LEVEL`
+- ✅ **Коннект-пул** — эффективное управление соединениями с БД
+- ✅ **Структурированные логи** — кастомный slog-логгер, единый формат для всех сообщений
+- ✅ **Валидация** — `title`, `status`, `description`, `priority` проверяются на корректность
 
 ---
 
@@ -58,16 +69,6 @@ type Task struct {
 | `LOG_LEVEL`    | Уровень логирования (`debug`/`info`/`warn`/`error`) | `info`                     |
 
 Можно положить в `.env` в корне проекта (godotenv подхватит автоматически).
-
----
-
-## 🛠 Требования к сервису
-
-- ✅ **Graceful shutdown** — корректная обработка `SIGINT`/`SIGTERM`, завершение текущих запросов и закрытие соединений
-- ✅ **Конфигурация через env** — `PORT`, `DATABASE_URL`, `LOG_LEVEL`
-- ✅ **Миграции** при старте (или отдельной командой)
-- ✅ **Структурированные логи** — каждый запрос логируется: метод, путь, статус, время
-- ✅ **Валидация** — `title` не пустой, `status`/`priority` только из разрешённых значений
 
 ---
 
@@ -103,14 +104,14 @@ LOG_LEVEL=info
 #### 3. Запустить миграции
 
 ```bash
-# через migrate
+# через migrate (когда будет настроено)
 migrate -path migrations -database "$DATABASE_URL" up
 ```
 
 #### 4. Запустить сервис
 
 ```bash
-go run ./cmd/api
+go run main.go
 ```
 
 Сервис поднимется на `http://localhost:8080`.
@@ -119,11 +120,60 @@ go run ./cmd/api
 
 ## 🗺 Планы развития
 
-- [ ] Докеризация (Docker + docker-compose) → запуск одной командой `docker compose up --build`
-- [ ] CI/CD (GitHub Actions)
-- [ ] Юнит- и интеграционные тесты
-- [ ] Метрики (`/metrics`) и трейсинг
+### Этап 1 — MVP (✅ почти завершён)
+
+- [x] Роутер `chi` + регистрация эндпоинтов
+- [x] Модель `Task` с JSON-тегами
+- [x] Middleware (логирование, обвязка)
+- [x] Подключение к PostgreSQL через `database/sql`
+- [x] Коннект-пул для БД
+- [x] Конфиг из env (`DATABASE_URL`, `PORT`, `LOG_LEVEL`) + `godotenv`
+- [x] `slog` — структурное логирование, кастомный логгер
+- [x] Graceful shutdown — `signal.NotifyContext` + `srv.Shutdown`
+- [x] `GET /health` — healthcheck с проверкой БД
+- [x] CRUD по `/tasks` (POST, GET, GET/{id}, PUT, DELETE)
+- [x] Валидация полей (`title`, `status`, `description`, `priority`)
+- [ ] Миграции — таблица `tasks` через `golang-migrate` или `goose`
+- [ ] Repository-слой — вынос SQL в отдельный пакет `internal/storage`
+
+### Этап 2 — Докеризация
+
+- [ ] `Dockerfile` с multi-stage build
+- [ ] `docker-compose.yml` с PostgreSQL + миграциями
+- [ ] Цель: `docker compose up --build` поднимает всё одной командой
+
+### Этап 3 — Тесты и CI/CD
+
+- [ ] Unit-тесты на хендлеры с моками storage
+- [ ] Интеграционные тесты на БД
+- [ ] CI/CD через GitHub Actions
+
+### Этап 4 — Продвинутые фичи
+
+- [ ] Метрики `/metrics` и трейсинг
 - [ ] Авторизация и аутентификация
+- [ ] Rate limiting
+
+---
+
+## 📊 Текущий статус
+
+**Этап 1 — финальная стадия** (готовность ~90% от ТЗ)
+
+✅ **Что работает:**
+- Все 5 CRUD-эндпоинтов (`POST`, `GET`, `GET/{id}`, `PUT`, `DELETE`)
+- Healthcheck `/health`
+- Graceful shutdown
+- Структурное логирование через `slog`
+- Коннект-пул для БД
+- Валидация полей
+
+🟡 **Что осталось:**
+- Миграции (таблица `tasks`)
+- Repository-слой (вынос SQL в отдельный пакет)
+
+⏳ **Следующий шаг:**
+- Закрыть миграции → перейти к Docker
 
 ---
 
