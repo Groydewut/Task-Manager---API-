@@ -45,13 +45,30 @@ func (h Handler) CreateTask(w http.ResponseWriter, r *http.Request) {
 
 func (h Handler) TaskList(w http.ResponseWriter, r *http.Request) {}
 
-func (h Handler) TaskListByID(w http.ResponseWriter, r *http.Request) {}
+func (h Handler) TaskListByID(w http.ResponseWriter, r *http.Request) {
+
+	id, _ := strconv.Atoi(chi.URLParam(r, "id"))
+	if id <= 0 {
+		http.Error(w, `{"error":"invalid id"}`, http.StatusBadRequest)
+		return
+	}
+	task, err := h.TaskM.GetByID(id)
+	if err != nil {
+		if errors.Is(err, taskfunction.ErrTaskNotFound) {
+			http.Error(w, `{"error":"not found"}`, http.StatusNotFound)
+			return
+		}
+		http.Error(w, `{"error":"internal error"}`, http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(task)
+}
 
 func (h Handler) UpdateTask(w http.ResponseWriter, r *http.Request) {}
 
 func (h Handler) DeleteTask(w http.ResponseWriter, r *http.Request) {
-	idStr := chi.URLParam(r, "id")
-	id, err := strconv.Atoi(idStr)
+	id, err := strconv.Atoi(chi.URLParam(r, "id"))
 	if err != nil || id <= 0 {
 		http.Error(w, "Отправлены не верные данные", http.StatusBadRequest)
 		return
