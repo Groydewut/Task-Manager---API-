@@ -83,7 +83,38 @@ func (h Handler) TaskListByID(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(task)
 }
 
-func (h Handler) UpdateTask(w http.ResponseWriter, r *http.Request) {}
+func (h Handler) UpdateTask(w http.ResponseWriter, r *http.Request) {
+
+	id, err := strconv.Atoi(chi.URLParam(r, "id"))
+	if err != nil || id <= 0 {
+		http.Error(w, "Отправлены не верные данные", http.StatusBadRequest)
+		return
+	}
+
+	var req taskfunction.Task
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, `{"error":"invalid json"}`, http.StatusBadRequest)
+		return
+	}
+	req.ID = id
+
+	if err := taskfunction.ValidateTask(req); err != nil {
+		http.Error(w, fmt.Sprintf(`{"error":"%s"}`, err.Error()), http.StatusBadRequest)
+		return
+	}
+
+	if err := h.TaskM.Update(req); err != nil {
+		if errors.Is(err, taskfunction.ErrTaskNotFound) {
+			http.Error(w, `{"error":"not found"}`, http.StatusNotFound)
+			return
+		}
+		http.Error(w, `{"error":"internal error"}`, http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"message": "task updated"})
+}
 
 func (h Handler) DeleteTask(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.Atoi(chi.URLParam(r, "id"))
