@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"mime"
 	"net/http"
 	"os"
 	"os/signal"
@@ -70,6 +71,15 @@ func main() {
 	})
 
 	r.Get("/health", myHandler.CheckHealth)
+
+	//! Подключение статических файлов (frontend)
+	fileserver := http.FileServer(http.Dir("./frontend"))
+	// Перехватываем любые GET-запросы, которые не подошли под верхние правила (например, /, /index.html, /app.js)
+	mime.AddExtensionType(".css", "text/css; charset=utf-8")
+	mime.AddExtensionType(".js", "application/javascript; charset=utf-8")
+	r.Get("/*", func(w http.ResponseWriter, r *http.Request) {
+		fileserver.ServeHTTP(w, r)
+	})
 
 	//! Настройка http.Server чтобы иметь доступ к методу Shutdown
 
