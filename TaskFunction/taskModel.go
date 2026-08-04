@@ -71,7 +71,12 @@ func (m TaskModel) Update(t Task) error {
 }
 
 func (m TaskModel) GetAllTasks(status string, limit, offset int) ([]Task, error) {
-	query := "SELECT id, title, description,status,priority,created_at,updated_at FROM tasks WHERE  (id = $1 OR status = $1) ORDER BY created_at DESC LIMIT $2 OFFSET $3"
+	query := `
+		SELECT id, title, description, status, priority, created_at, updated_at 
+		FROM tasks 
+		WHERE ($1 = '' OR status = $1) 
+		ORDER BY created_at DESC 
+		LIMIT $2 OFFSET $3`
 
 	rows, err := m.DB.Query(query, status, limit, offset)
 

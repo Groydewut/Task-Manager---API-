@@ -43,7 +43,25 @@ func (h Handler) CreateTask(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func (h Handler) TaskList(w http.ResponseWriter, r *http.Request) {}
+func (h Handler) TaskList(w http.ResponseWriter, r *http.Request) {
+	status := r.URL.Query().Get("status")
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
+
+	if limit <= 0 || limit > 100 {
+		limit = 10
+	}
+	if offset < 0 {
+		offset = 0
+	}
+	tasks, err := h.TaskM.GetAllTasks(status, limit, offset)
+	if err != nil {
+		http.Error(w, `{"error":"internal error"}`, http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(tasks)
+}
 
 func (h Handler) TaskListByID(w http.ResponseWriter, r *http.Request) {
 
