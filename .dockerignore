@@ -1,0 +1,25 @@
+# Git
+.git
+.gitignore
+
+# IDE
+.vscode
+.idea
+
+# Env файлы (не копируем локальные секреты в образ)
+.env
+*.env
+
+# Бинарники (если собирал локально)
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Тестовые данные и документация
+README.md
+*.md
+
+# OS
+.DS_Store
+Thumbs.db

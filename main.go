@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+
 	"errors"
 	"log/slog"
 	"mime"
@@ -27,7 +28,7 @@ func main() {
 	err := godotenv.Load()
 	if err != nil {
 		logger.Error("Не удалось загрузить файл .env, используются переменные окружения")
-		os.Exit(1)
+
 	}
 
 	//! Подключение к бд
