@@ -11,10 +11,11 @@ REST API для управления задачами, написанный на
 - **Роутер:** [chi](https://github.com/go-chi/chi) (`v5`)
 - **БД:** PostgreSQL (драйвер `database/sql` — стандартная библиотека)
 - **Коннект-пул:** настроен для эффективного управления соединениями
-- **Миграции:** планируется `golang-migrate` или `goose`
+- **Миграции:** `golang-migrate` (файлы в `migrations/`)
 - **Логи:** стандартный [`log/slog`](https://pkg.go.dev/log/slog) + кастомный логгер с единым форматом
 - **Конфиг:** переменные окружения + [godotenv](https://github.com/joho/godotenv)
 - **Graceful shutdown:** `signal.NotifyContext` + `srv.Shutdown`
+- **Frontend:** HTML + JS + CSS (в папке `frontend/`)
 - **Контейнеризация:** Docker + docker-compose (планируется)
 
 ---
@@ -39,6 +40,8 @@ REST API для управления задачами, написанный на
 - ✅ **Коннект-пул** — эффективное управление соединениями с БД
 - ✅ **Структурированные логи** — кастомный slog-логгер, единый формат для всех сообщений
 - ✅ **Валидация** — `title`, `status`, `description`, `priority` проверяются на корректность
+- ✅ **Миграции** — `migrations/000001_create_tasks_table.up.sql` и `.down.sql`
+- ✅ **Frontend** — базовый UI в `frontend/` (HTML + JS + CSS)
 
 ---
 
@@ -133,7 +136,8 @@ docker compose up --build
 - [x] `GET /health` — healthcheck с проверкой БД
 - [x] CRUD по `/tasks` (POST, GET, GET/{id}, PUT, DELETE)
 - [x] Валидация полей (`title`, `status`, `description`, `priority`)
-- [x] Миграции — таблица `tasks` через `golang-migrate` или `goose`
+- [x] Миграции — `golang-migrate`, файлы в `migrations/`
+- [x] Frontend — базовый UI (HTML + JS + CSS)
 - [ ] Repository-слой — вынос SQL в отдельный пакет `internal/storage`
 
 ### Этап 2 — Докеризация
@@ -167,6 +171,8 @@ docker compose up --build
 - Структурное логирование через `slog`
 - Коннект-пул для БД
 - Валидация полей
+- Миграции (`golang-migrate`)
+- Frontend (базовый UI)
 
 🟡 **Что осталось:**
 - Repository-слой (вынос SQL в отдельный пакет)
