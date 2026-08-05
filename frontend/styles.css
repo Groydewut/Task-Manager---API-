@@ -126,6 +126,7 @@ button:active {
 .task-list {
     display: grid;
     gap: 15px;
+    grid-template-columns: 1fr;
 }
 
 .task-card {
@@ -135,6 +136,9 @@ button:active {
     box-shadow: 0 4px 15px rgba(0,0,0,0.1);
     transition: transform 0.2s;
     position: relative;
+    width: 100%;
+    max-width: 100%;
+    overflow: hidden;
 }
 
 .task-card:hover {
@@ -162,7 +166,14 @@ button:active {
 .task-description {
     color: #666;
     margin-bottom: 15px;
-    line-height: 1.5;
+    max-width: 100%;
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+    white-space: pre-wrap;
+    word-break: break-word;
+    hyphens: auto;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .task-meta {
