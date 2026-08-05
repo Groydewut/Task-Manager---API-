@@ -101,6 +101,7 @@ CREATE TABLE tasks (
 Одной командой поднимает БД и API:
 
 ```bash
+git clone https://github.com/Groydewut/Task-Manager---API-.git
 docker compose up --build
 ```
 
