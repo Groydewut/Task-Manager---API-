@@ -12,10 +12,12 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/redis/go-redis/v9"
 )
 
 type Handler struct {
 	TaskM taskfunction.TaskModel
+	Redis *redis.Client
 }
 
 func (h Handler) CreateTask(w http.ResponseWriter, r *http.Request) {

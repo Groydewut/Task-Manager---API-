@@ -14,6 +14,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/joho/godotenv"
+	"github.com/redis/go-redis/v9"
 
 	middleware "TaskManager-API/Middleware"
 	TaskController "TaskManager-API/TaskControllerHendlers"
@@ -51,10 +52,25 @@ func main() {
 		logger.Error("Критическая ошибка. Переменая базы данных равна nil")
 		os.Exit(1)
 	}
+	//! подключение redis
+	redisAddr := os.Getenv("REDIS_ADDR")
+	if redisAddr == "" {
+		redisAddr = "localhost:6379"
+	}
+
+	rdb := redis.NewClient(&redis.Options{
+		Addr: redisAddr,
+	})
+	if err := rdb.Ping(context.Background()).Err(); err != nil {
+		logger.Error("Ошибка подключения к redis", slog.String("err", err.Error()))
+		os.Exit(1)
+	}
+	logger.Info("Подключение к redis установлено")
 
 	myModel := taskfunction.TaskModel{DB: db}
 	myHandler := TaskController.Handler{
 		TaskM: myModel,
+		Redis: rdb,
 	}
 
 	//! Создание роутера
