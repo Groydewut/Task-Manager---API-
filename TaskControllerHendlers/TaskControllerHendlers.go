@@ -20,6 +20,38 @@ type Handler struct {
 	Redis *redis.Client
 }
 
+const cacheTTL = 5 * time.Minute
+
+func (h Handler) setCache(ctx context.Context, key string, value any) {
+	data, err := json.Marshal(value)
+	if err != nil {
+		return
+	}
+	h.Redis.Set(ctx, key, data, cacheTTL)
+}
+
+func (h Handler) getCache(ctx context.Context, key string, dest any) bool {
+	val, err := h.Redis.Get(ctx, key).Result()
+	if err != nil {
+		return false
+	}
+	if err := json.Unmarshal([]byte(val), dest); err != nil {
+		return false
+	}
+	return true
+}
+
+func (h Handler) invalidateCache(ctx context.Context, taskID int) {
+	h.Redis.Del(ctx, fmt.Sprintf("tasks:%d", taskID))
+	iter := h.Redis.Scan(ctx, 0, "tasks:list:*", 0).Iterator()
+	for iter.Next(ctx) {
+		h.Redis.Del(ctx, iter.Val())
+	}
+	if err := iter.Err(); err != nil {
+		slog.Error("ошибка сканирования ключей Redis", "err", err)
+	}
+}
+
 func (h Handler) CreateTask(w http.ResponseWriter, r *http.Request) {
 	var req taskfunction.Task
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -36,6 +68,9 @@ func (h Handler) CreateTask(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, `{"error":"internal server error"}`, http.StatusInternalServerError)
 		return
 	}
+	// Инвалидация: списки изменились
+	h.invalidateCache(r.Context(), 0) // 0 — не удаляем конкретную задачу, только списки
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(map[string]any{
@@ -56,12 +91,26 @@ func (h Handler) TaskList(w http.ResponseWriter, r *http.Request) {
 	if offset < 0 {
 		offset = 0
 	}
+	cacheKey := fmt.Sprintf("tasks:list:%s:%d:%d", status, limit, offset)
+	var tasks []taskfunction.Task
+	if h.getCache(r.Context(), cacheKey, &tasks) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("X-Cache", "HIT")
+		json.NewEncoder(w).Encode(tasks)
+		return
+	}
+
 	tasks, err := h.TaskM.GetAllTasks(status, limit, offset)
 	if err != nil {
+		slog.Error("get tasks error", "err", err)
 		http.Error(w, `{"error":"internal error"}`, http.StatusInternalServerError)
 		return
 	}
+
+	h.setCache(r.Context(), cacheKey, tasks)
+
 	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("X-Cache", "MISS")
 	json.NewEncoder(w).Encode(tasks)
 }
 
@@ -70,6 +119,15 @@ func (h Handler) TaskListByID(w http.ResponseWriter, r *http.Request) {
 	id, _ := strconv.Atoi(chi.URLParam(r, "id"))
 	if id <= 0 {
 		http.Error(w, `{"error":"invalid id"}`, http.StatusBadRequest)
+		return
+	}
+	cacheKey := fmt.Sprintf("task:%d", id)
+
+	var task taskfunction.Task
+	if h.getCache(r.Context(), cacheKey, &task) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("X-Cache", "HIT")
+		json.NewEncoder(w).Encode(task)
 		return
 	}
 	task, err := h.TaskM.GetByID(id)
@@ -81,7 +139,10 @@ func (h Handler) TaskListByID(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, `{"error":"internal error"}`, http.StatusInternalServerError)
 		return
 	}
+	h.setCache(r.Context(), cacheKey, task)
+
 	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("X-Cache", "MISS")
 	json.NewEncoder(w).Encode(task)
 }
 
@@ -114,6 +175,9 @@ func (h Handler) UpdateTask(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, `{"error":"internal error"}`, http.StatusInternalServerError)
 		return
 	}
+
+	h.invalidateCache(r.Context(), id)
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"message": "task updated"})
 }
@@ -135,32 +199,39 @@ func (h Handler) DeleteTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	h.invalidateCache(r.Context(), id)
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 
 	response := map[string]string{"message": "Элемент успешно удалён."}
-	err = json.NewEncoder(w).Encode(response)
-	if err != nil {
-		http.Error(w, `{"error":"failed to encode response"}`, http.StatusBadRequest)
-		return
+
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		slog.Error("failed to encode delete response", "err", err)
 	}
 
 }
 
 func (h Handler) CheckHealth(w http.ResponseWriter, r *http.Request) {
 
-	db, _ := taskfunction.InitDB()
-	defer db.Close()
-
 	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
 	defer cancel()
 
-	if err := db.PingContext(ctx); err != nil {
+	if err := h.TaskM.DB.PingContext(ctx); err != nil {
 		w.WriteHeader(http.StatusServiceUnavailable)
-		w.Write([]byte("data base is down"))
+		json.NewEncoder(w).Encode(map[string]string{"status": "unhealthy", "db": err.Error()})
 		return
 	}
+
+	// Проверим и Redis
+	if err := h.Redis.Ping(ctx).Err(); err != nil {
+		w.WriteHeader(http.StatusServiceUnavailable)
+		json.NewEncoder(w).Encode(map[string]string{"status": "unhealthy", "redis": err.Error()})
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("OK"))
+	json.NewEncoder(w).Encode(map[string]string{"status": "healthy"})
 
 }
