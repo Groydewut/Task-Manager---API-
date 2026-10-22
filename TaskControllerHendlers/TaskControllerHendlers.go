@@ -54,12 +54,26 @@ func (h Handler) invalidateCache(ctx context.Context, taskID int) {
 
 func (h Handler) CreateTask(w http.ResponseWriter, r *http.Request) {
 	var req taskfunction.Task
+	ctx := context.Background()
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, `{"error":"invalid json"}`, http.StatusBadRequest)
 		return
 	}
 	if err := taskfunction.ValidateTask(req); err != nil {
 		http.Error(w, fmt.Sprintf(`{"error":"%s"}`, err.Error()), http.StatusBadRequest)
+		return
+	}
+	requestID := r.Header.Get("X_Request_ID")
+	if requestID == "" {
+		slog.Error(`{"error":"X-Request-ID header is required"}`)
+		return
+	}
+	lockKey := fmt.Sprintf("request:%s", requestID)
+	ok, err := h.Redis.SetNX(ctx, lockKey, "processing", time.Second*60).Result()
+	if err != nil {
+		slog.Warn("redis недоступен", "err", err)
+	} else if !ok {
+		http.Error(w, `{"error":"duplicate request"}`, http.StatusConflict)
 		return
 	}
 	id, err := h.TaskM.InsertTask(req)
