@@ -7,16 +7,16 @@ REST API для управления задачами на **Go** с веб-ин
 
 ## 🚀 Стек технологий
 
-| Категория       | Технологии                                                                 |
-|-----------------|----------------------------------------------------------------------------|
-| **Язык**        | Go 1.26.2                                                                  |
-| **Роутер**      | [chi/v5](https://github.com/go-chi/chi)                                    |
-| **База данных** | PostgreSQL 17 (`database/sql` + драйвер `lib/pq`)                          |
-| **Миграции**    | [golang-migrate](https://github.com/golang-migrate/migrate)                |
-| **Конфиг**      | Переменные окружения + [godotenv](https://github.com/joho/godotenv)        |
-| **Логирование** | [`log/slog`](https://pkg.go.dev/log/slog) (структурированные логи)         |
-| **Контейнеры**  | Docker (multi-stage build) + Docker Compose                                |
-| **Frontend**    | HTML5 + CSS3 + Vanilla JavaScript                                          |
+| Категория       | Технологии                                                          |
+| --------------- | ------------------------------------------------------------------- |
+| **Язык**        | Go 1.26.2                                                           |
+| **Роутер**      | [chi/v5](https://github.com/go-chi/chi)                             |
+| **База данных** | PostgreSQL 17 (`database/sql` + драйвер `lib/pq`)                   |
+| **Миграции**    | [golang-migrate](https://github.com/golang-migrate/migrate)         |
+| **Конфиг**      | Переменные окружения + [godotenv](https://github.com/joho/godotenv) |
+| **Логирование** | [`log/slog`](https://pkg.go.dev/log/slog) (структурированные логи)  |
+| **Контейнеры**  | Docker (multi-stage build) + Docker Compose                         |
+| **Frontend**    | HTML5 + CSS3 + Vanilla JavaScript                                   |
 
 ---
 
@@ -24,14 +24,14 @@ REST API для управления задачами на **Go** с веб-ин
 
 ### API Endpoints
 
-| Метод  | Путь           | Описание                               |
-| ------ | -------------- | -------------------------------------- |
-| POST   | `/tasks`       | Создать новую задачу                   |
-| GET    | `/tasks`       | Список задач (с фильтрацией и пагинацией) |
-| GET    | `/tasks/{id}`  | Получить задачу по ID                  |
-| PUT    | `/tasks/{id}`  | Обновить задачу                        |
-| DELETE | `/tasks/{id}`  | Удалить задачу                         |
-| GET    | `/health`      | Проверка здоровья (БД + сервер)        |
+| Метод  | Путь          | Описание                                  |
+| ------ | ------------- | ----------------------------------------- |
+| POST   | `/tasks`      | Создать новую задачу                      |
+| GET    | `/tasks`      | Список задач (с фильтрацией и пагинацией) |
+| GET    | `/tasks/{id}` | Получить задачу по ID                     |
+| PUT    | `/tasks/{id}` | Обновить задачу                           |
+| DELETE | `/tasks/{id}` | Удалить задачу                            |
+| GET    | `/health`     | Проверка здоровья (БД + сервер)           |
 
 ### Функционал
 
@@ -53,13 +53,13 @@ REST API для управления задачами на **Go** с веб-ин
 
 ```json
 {
-  "id": 1,
-  "title": "string (required, max 255)",
-  "description": "string (optional, max 5000)",
-  "status": "pending|in_progress|done",
-  "priority": "low|medium|high",
-  "created_at": "2025-01-15T10:00:00Z",
-  "updated_at": "2025-01-15T10:00:00Z"
+    "id": 1,
+    "title": "string (required, max 255)",
+    "description": "string (optional, max 5000)",
+    "status": "pending|in_progress|done",
+    "priority": "low|medium|high",
+    "created_at": "2025-01-15T10:00:00Z",
+    "updated_at": "2025-01-15T10:00:00Z"
 }
 ```
 
@@ -83,14 +83,14 @@ CREATE TABLE tasks (
 
 Переменные окружения:
 
-| Переменная      | Описание                    | По умолчанию |
-|-----------------|-----------------------------|--------------|
-| `DB_HOST`       | Хост PostgreSQL             | `localhost`  |
-| `DB_PORT`       | Порт PostgreSQL             | `5432`       |
-| `DB_USER`       | Пользователь БД             | `postgres`   |
-| `DB_PASSWORD`   | Пароль БД                   | `secret`     |
-| `DB_NAME`       | Имя базы данных             | `TaskDb`     |
-| `PORT`          | Порт HTTP-сервера           | `8080`       |
+| Переменная    | Описание          | По умолчанию |
+| ------------- | ----------------- | ------------ |
+| `DB_HOST`     | Хост PostgreSQL   | `localhost`  |
+| `DB_PORT`     | Порт PostgreSQL   | `5432`       |
+| `DB_USER`     | Пользователь БД   | `postgres`   |
+| `DB_PASSWORD` | Пароль БД         | `secret`     |
+| `DB_NAME`     | Имя базы данных   | `TaskDb`     |
+| `PORT`        | Порт HTTP-сервера | `8080`       |
 
 ---
 
@@ -183,27 +183,34 @@ go run main.go
 ## 🔧 Особенности реализации
 
 ### Graceful Shutdown
+
 Сервер корректно обрабатывает сигналы `SIGINT`/`SIGTERM`:
+
 - Останавливает приём новых запросов
 - Даёт завершиться текущим запросам (до 5 секунд)
 - Закрывает соединения с БД
 
 ### Connection Pooling
+
 ```go
 db.SetMaxOpenConns(15)  // Максимум открытых соединений
 db.SetMaxIdleConns(8)   // Минимум в пуле
 ```
 
 ### Auto-Migrations
+
 Миграции применяются автоматически при подключении к БД через `golang-migrate`.
 
 ### Логирование
+
 Каждый запрос логируется с метриками:
+
 ```
 time=... level=INFO msg="incoming request" method=GET path=/tasks status=200 duration_ms=5
 ```
 
 ### Безопасность
+
 - Non-root пользователь в Docker-контейнере
 - Валидация всех входных данных
 - SQL-инъекции предотвращены (prepared statements)
@@ -254,15 +261,15 @@ curl http://localhost:8080/health
 
 ## 📊 Статус проекта
 
-| Этап              | Статус     |
-|-------------------|------------|
-| CRUD API          | ✅ Готово  |
-| Frontend UI       | ✅ Готово  |
-| Graceful Shutdown | ✅ Готово  |
-| Миграции БД       | ✅ Готово  |
-| Docker            | ✅ Готово  |
-| Логирование       | ✅ Готово  |
-| Валидация         | ✅ Готово  |
+| Этап              | Статус    |
+| ----------------- | --------- |
+| CRUD API          | ✅ Готово |
+| Frontend UI       | ✅ Готово |
+| Graceful Shutdown | ✅ Готово |
+| Миграции БД       | ✅ Готово |
+| Docker            | ✅ Готово |
+| Логирование       | ✅ Готово |
+| Валидация         | ✅ Готово |
 
 ---
 
@@ -278,9 +285,9 @@ curl http://localhost:8080/health
 
 ---
 
-## 📝 Лицензия
+## 📄 Лицензия
 
-MIT
+Распространяется под лицензией MIT
 
 ---
 
